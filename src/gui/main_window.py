@@ -1,5 +1,6 @@
 """GUIメインウィンドウモジュール"""
 
+import atexit
 import threading
 import time
 from typing import Optional
@@ -31,6 +32,9 @@ class MIDIGUI:
         self.output_config = self.config_manager.get_output_config()
         self.gui_config = self.config_manager.get_gui_config()
 
+        # アプリケーション終了時のクリーンアップ処理を登録
+        atexit.register(self.save_on_exit)
+
     def main(self, page: ft.Page):
         """メインGUIを構築する
 
@@ -48,6 +52,9 @@ class MIDIGUI:
         page.window_width = 600
         page.window_height = 400
         page.window_resizable = True
+
+        # ウィンドウが閉じられる時のイベントハンドラーを設定
+        page.on_window_event = self.handle_window_event
 
         # ステータス表示
         self.status_text = ft.Text("待機中", size=16, weight=ft.FontWeight.BOLD)
@@ -159,6 +166,42 @@ class MIDIGUI:
 
         # 監視スレッドを開始
         self.start_monitoring_thread()
+
+    def handle_window_event(self, e):
+        """ウィンドウイベントを処理する"""
+        if e.data == "close":
+            # ウィンドウが閉じられる時にMIDIデータを保存
+            self.save_on_exit()
+            return False  # イベントのデフォルト処理を継続
+
+    def save_on_exit(self):
+        """アプリケーション終了時にMIDIデータを保存する"""
+        try:
+            if self.monitor and self.monitor.is_monitoring:
+                # 録音中の場合、バッファに残っているデータを保存
+                if self.monitor.has_buffered_events():
+                    filepath = self.monitor.save_current_buffer()
+
+                    # GUIが利用可能な場合はログメッセージを表示
+                    if self.page and self.log_area:
+                        self.log_message(f"終了時保存: {filepath}")
+
+                    self.logger.log_info(
+                        f"アプリケーション終了時にMIDIデータを保存しました: {filepath}"
+                    )
+
+                # 監視を停止
+                self.monitor.stop_monitoring()
+                self.monitor = None
+
+        except Exception as e:
+            error_msg = f"終了時保存エラー: {e}"
+
+            # GUIが利用可能な場合はログメッセージを表示
+            if self.page and self.log_area:
+                self.log_message(error_msg)
+
+            self.logger.log_error(error_msg)
 
     def start_recording(self, _):
         """録音を開始する"""
@@ -279,14 +322,19 @@ class MIDIGUI:
 
     def log_message(self, message: str):
         """ログメッセージを表示する"""
-        if self.log_area:
-            current_time = time.strftime("%H:%M:%S")
-            log_entry = f"[{current_time}] {message}\n"
-            self.log_area.value += log_entry
+        try:
+            if self.log_area and self.page:
+                current_time = time.strftime("%H:%M:%S")
+                log_entry = f"[{current_time}] {message}\n"
+                self.log_area.value += log_entry
 
-            # ログが長すぎる場合は古い部分を削除
-            lines = self.log_area.value.split("\n")
-            if len(lines) > 50:
-                self.log_area.value = "\n".join(lines[-40:])
+                # ログが長すぎる場合は古い部分を削除
+                lines = self.log_area.value.split("\n")
+                if len(lines) > 50:
+                    self.log_area.value = "\n".join(lines[-40:])
 
-            self.page.update()
+                self.page.update()
+        except Exception as e:
+            # GUIが利用できない場合はログファイルのみに記録
+            self.logger.log_error(f"ログメッセージ表示エラー: {e}")
+            self.logger.log_info(message)
