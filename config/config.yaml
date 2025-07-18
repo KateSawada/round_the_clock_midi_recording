@@ -1,0 +1,11 @@
+gui:
+  theme_mode: light
+  window_title: MIDI Recording System
+logging:
+  file: ./logs/midi_recorder.log
+  level: INFO
+midi:
+  port_name: "AvantGrand"
+  timeout_seconds: 300
+output:
+  directory: ./recordings
