@@ -72,13 +72,13 @@ class MIDIFileWriter:
             )
             track.append(tempo_message)
 
-            # メッセージをトラックに追加（タイムスタンプを保持）
-            for message in messages:
+            # タイムスタンプを正規化（最初のメッセージを0にする）
+            normalized_messages = self._normalize_timestamps(messages)
+
+            # メッセージをトラックに追加
+            for message in normalized_messages:
                 # メッセージタイプがMetaMessageでない場合のみ追加
                 if not hasattr(message, "type") or message.type != "set_tempo":
-                    # タイムスタンプが設定されていない場合は0に設定
-                    if not hasattr(message, "time") or message.time is None:
-                        message.time = 0
                     track.append(message)
 
             # ファイルに書き込み
@@ -88,6 +88,51 @@ class MIDIFileWriter:
 
         except Exception as e:
             raise FileWriteError(f"ファイル書き込みに失敗しました: {e}")
+
+    def _normalize_timestamps(self, messages: List[mido.Message]) -> List[mido.Message]:
+        """タイムスタンプを正規化して最初のメッセージを0にする
+
+        Args:
+            messages: 正規化するメッセージリスト
+
+        Returns:
+            正規化されたメッセージリスト
+        """
+        if not messages:
+            return messages
+
+        # メッセージのコピーを作成（元のメッセージを変更しない）
+        normalized_messages = []
+        for msg in messages:
+            # メッセージのコピーを作成
+            if hasattr(msg, "copy"):
+                new_msg = msg.copy()
+            else:
+                # copyメソッドがない場合は新しいメッセージを作成
+                new_msg = mido.Message(
+                    type=msg.type,
+                    note=msg.note if hasattr(msg, "note") else None,
+                    velocity=(msg.velocity if hasattr(msg, "velocity") else None),
+                    channel=msg.channel if hasattr(msg, "channel") else 0,
+                    time=msg.time,
+                )
+            normalized_messages.append(new_msg)
+
+        # 最初のメッセージのタイムスタンプを0に設定
+        if normalized_messages:
+            normalized_messages[0].time = 0
+
+        # 後続のメッセージのタイムスタンプを相対的に調整
+        for i in range(1, len(normalized_messages)):
+            # 前のメッセージからの相対時間を計算
+            if i == 1:
+                # 2番目のメッセージは最初のメッセージからの相対時間
+                normalized_messages[i].time = messages[i].time
+            else:
+                # 3番目以降は前のメッセージからの相対時間
+                normalized_messages[i].time = messages[i].time
+
+        return normalized_messages
 
     def _generate_filename(self, is_manual_save: bool = False) -> str:
         """自動ファイル名を生成する
