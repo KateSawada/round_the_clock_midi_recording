@@ -39,6 +39,14 @@ class Logger:
         """
         self.logger.info(f"File saved: {filename}")
 
+    def log_manual_save(self, filename: str) -> None:
+        """手動保存完了をログに記録する
+
+        Args:
+            filename: 保存されたファイル名
+        """
+        self.logger.info(f"Manual save completed: {filename}")
+
     def log_recording_started(self) -> None:
         """録音開始をログに記録する"""
         self.logger.info("Recording started")

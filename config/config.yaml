@@ -9,3 +9,4 @@ midi:
   timeout_seconds: 300
 output:
   directory: ./recordings
+  manual_save_directory: ./manual_saves

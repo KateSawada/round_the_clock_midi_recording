@@ -40,7 +40,10 @@ class ConfigManager:
         """デフォルト設定ファイルを作成する"""
         default_config = {
             "midi": {"port_name": "default", "timeout_seconds": 300},
-            "output": {"directory": "./recordings"},
+            "output": {
+                "directory": "./recordings",
+                "manual_save_directory": "./manual_saves",
+            },
             "gui": {"window_title": "MIDI Recording System", "theme_mode": "light"},
             "logging": {"level": "INFO", "file": "./logs/midi_recorder.log"},
         }
@@ -83,6 +86,26 @@ class ConfigManager:
         """
         return self._config.get("output", {})
 
+    def get_manual_save_directory(self) -> str:
+        """手動保存用ディレクトリを取得する
+
+        Returns:
+            手動保存用ディレクトリパス
+        """
+        output_config = self.get_output_config()
+        key = "manual_save_directory"
+        default = "./manual_saves"
+        return output_config.get(key, default)
+
+    def get_output_directory(self) -> str:
+        """出力ディレクトリを取得する
+
+        Returns:
+            出力ディレクトリパス
+        """
+        output_config = self.get_output_config()
+        return output_config.get("directory", "./recordings")
+
     def get_gui_config(self) -> Dict[str, Any]:
         """GUI設定を取得する
 
@@ -115,3 +138,14 @@ class ConfigManager:
         # 設定ファイルに保存
         with open(self.config_file, "w", encoding="utf-8") as f:
             yaml.dump(self._config, f, default_flow_style=False, allow_unicode=True)
+
+    def ensure_directories_exist(self) -> None:
+        """必要なディレクトリが存在することを確認する"""
+        directories = [
+            self.get_output_directory(),
+            self.get_manual_save_directory(),
+        ]
+
+        for directory in directories:
+            if not os.path.exists(directory):
+                os.makedirs(directory)

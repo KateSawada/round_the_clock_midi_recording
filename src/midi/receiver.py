@@ -1,6 +1,7 @@
 """MIDI受信モジュール"""
 
 import platform
+import time
 from typing import List, Optional
 
 import mido
@@ -24,6 +25,8 @@ class MIDIReceiver:
         self.messages: List[mido.Message] = []
         self.is_recording = False
         self._port: Optional[mido.ports.BaseInput] = None
+        self.start_time: Optional[float] = None
+        self.last_message_time: Optional[float] = None
 
         # macOSではrtmidiバックエンドの設定を調整
         if platform.system() == "Darwin":
@@ -66,6 +69,8 @@ class MIDIReceiver:
             # ポートを開く
             self._port = mido.open_input(self.port_name)
             self.is_recording = True
+            self.start_time = time.time()
+            self.last_message_time = None
 
         except Exception as e:
             raise MIDIError(f"MIDIポートのオープンに失敗しました: {e}")
@@ -76,6 +81,8 @@ class MIDIReceiver:
             self._port.close()
             self._port = None
         self.is_recording = False
+        self.start_time = None
+        self.last_message_time = None
 
     def get_messages(self) -> List[mido.Message]:
         """蓄積されたメッセージを取得し、バッファをクリアする
@@ -103,7 +110,26 @@ class MIDIReceiver:
         try:
             # 非ブロッキングでメッセージを受信
             for message in self._port.iter_pending():
+                # タイムスタンプを設定
+                current_time = time.time()
+                if self.start_time is None:
+                    self.start_time = current_time
+                    delta_time = 0
+                else:
+                    if self.last_message_time is None:
+                        delta_time = int(
+                            (current_time - self.start_time) * 1000
+                        )  # ミリ秒
+                    else:
+                        delta_time = int(
+                            (current_time - self.last_message_time) * 1000
+                        )  # ミリ秒
+
+                # メッセージにデルタタイムを設定
+                message.time = delta_time
                 self.messages.append(message)
+                self.last_message_time = current_time
+
         except Exception as e:
             # 受信エラーをログに記録
             print(f"MIDI受信エラー: {e}")
@@ -119,3 +145,5 @@ class MIDIReceiver:
     def clear_messages(self) -> None:
         """メッセージバッファをクリアする"""
         self.messages.clear()
+        self.start_time = None
+        self.last_message_time = None

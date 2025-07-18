@@ -13,7 +13,11 @@ class MIDIMonitor:
     """MIDI受信、ファイル書き出し、タイマー機能を統合するメインクラス"""
 
     def __init__(
-        self, port_name: str, output_directory: str, timeout_seconds: int = 300
+        self,
+        port_name: str,
+        output_directory: str,
+        timeout_seconds: int = 300,
+        manual_save_directory: Optional[str] = None,
     ) -> None:
         """MIDIMonitorを初期化する
 
@@ -21,14 +25,16 @@ class MIDIMonitor:
             port_name: MIDIポート名
             output_directory: 出力ディレクトリ
             timeout_seconds: タイムアウト時間（秒）
+            manual_save_directory: 手動保存用ディレクトリ（Noneの場合はoutput_directoryと同じ）
         """
         self.port_name = port_name
         self.output_directory = output_directory
+        self.manual_save_directory = manual_save_directory or output_directory
         self.timeout_seconds = timeout_seconds
 
         # コンポーネントの初期化
         self.receiver = MIDIReceiver(port_name)
-        self.writer = MIDIFileWriter(output_directory)
+        self.writer = MIDIFileWriter(output_directory, manual_save_directory)
         self.timer = AutoSaveTimer(timeout_seconds)
         self.logger = Logger()
 
@@ -65,8 +71,11 @@ class MIDIMonitor:
         self.is_monitoring = False
         self.logger.log_recording_stopped()
 
-    def save_current_buffer(self) -> Optional[str]:
+    def save_current_buffer(self, is_manual_save: bool = False) -> Optional[str]:
         """現在のバッファを保存する
+
+        Args:
+            is_manual_save: 手動保存かどうか（Trueの場合は手動保存用ディレクトリに保存）
 
         Returns:
             保存されたファイルパス（バッファが空の場合はNone）
@@ -79,16 +88,29 @@ class MIDIMonitor:
             messages = self.receiver.get_messages()
 
             # ファイルに書き込み
-            filepath = self.writer.write_messages(messages)
+            filepath = self.writer.write_messages(
+                messages, is_manual_save=is_manual_save
+            )
 
             # ログに記録
-            self.logger.log_file_saved(filepath)
+            if is_manual_save:
+                self.logger.log_manual_save(filepath)
+            else:
+                self.logger.log_file_saved(filepath)
 
             return filepath
 
         except Exception as e:
             self.logger.log_error(f"バッファ保存に失敗しました: {e}")
             raise FileWriteError(f"バッファ保存に失敗しました: {e}")
+
+    def manual_save(self) -> Optional[str]:
+        """手動保存を実行する
+
+        Returns:
+            保存されたファイルパス（バッファが空の場合はNone）
+        """
+        return self.save_current_buffer(is_manual_save=True)
 
     def has_buffered_events(self) -> bool:
         """バッファにイベントがあるかチェックする
@@ -118,7 +140,7 @@ class MIDIMonitor:
         """自動保存コールバック"""
         try:
             if self.has_buffered_events():
-                self.save_current_buffer()
+                self.save_current_buffer(is_manual_save=False)
         except Exception as e:
             self.logger.log_error(f"自動保存エラー: {e}")
 
@@ -135,6 +157,7 @@ class MIDIMonitor:
             "timer_running": self.timer.is_running(),
             "port_name": self.port_name,
             "output_directory": self.output_directory,
+            "manual_save_directory": self.manual_save_directory,
         }
 
     def get_message_count(self) -> int:

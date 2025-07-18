@@ -60,8 +60,11 @@ class MIDIGUI:
         self.port_info_text = ft.Text(f"ポート: {port_name}", size=12)
 
         # 出力ディレクトリ表示
-        output_dir = self.output_config.get("directory", "./recordings")
-        self.output_info_text = ft.Text(f"出力: {output_dir}", size=12)
+        output_dir = self.config_manager.get_output_directory()
+        manual_save_dir = self.config_manager.get_manual_save_directory()
+        self.output_info_text = ft.Text(
+            f"出力: {output_dir} / 手動保存: {manual_save_dir}", size=12
+        )
 
         # ボタン
         self.start_button = ft.ElevatedButton(
@@ -162,13 +165,18 @@ class MIDIGUI:
         try:
             # MIDIモニターを初期化
             port_name = self.midi_config.get("port_name", "default")
-            output_dir = self.output_config.get("directory", "./recordings")
+            output_dir = self.config_manager.get_output_directory()
+            manual_save_dir = self.config_manager.get_manual_save_directory()
             timeout = self.midi_config.get("timeout_seconds", 300)
+
+            # 必要なディレクトリが存在することを確認
+            self.config_manager.ensure_directories_exist()
 
             self.monitor = MIDIMonitor(
                 port_name=port_name,
                 output_directory=output_dir,
                 timeout_seconds=timeout,
+                manual_save_directory=manual_save_dir,
             )
 
             # 監視を開始
@@ -219,7 +227,7 @@ class MIDIGUI:
         """手動保存を実行する"""
         try:
             if self.monitor and self.monitor.has_buffered_events():
-                filepath = self.monitor.save_current_buffer()
+                filepath = self.monitor.manual_save()
                 self.log_message(f"手動保存完了: {filepath}")
             else:
                 self.log_message("保存するデータがありません")
