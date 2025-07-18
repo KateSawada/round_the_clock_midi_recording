@@ -1,6 +1,6 @@
 """MIDI監視モジュール"""
 
-from typing import Optional
+from typing import Callable, Optional
 
 from ..utils.exceptions import FileWriteError, MIDIError
 from ..utils.logger import Logger
@@ -18,6 +18,7 @@ class MIDIMonitor:
         output_directory: str,
         timeout_seconds: int = 300,
         manual_save_directory: Optional[str] = None,
+        gui_callback: Optional[Callable[[str], None]] = None,
     ) -> None:
         """MIDIMonitorを初期化する
 
@@ -26,11 +27,13 @@ class MIDIMonitor:
             output_directory: 出力ディレクトリ
             timeout_seconds: タイムアウト時間（秒）
             manual_save_directory: 手動保存用ディレクトリ（Noneの場合はoutput_directoryと同じ）
+            gui_callback: GUIへのメッセージ送信用コールバック
         """
         self.port_name = port_name
         self.output_directory = output_directory
         self.manual_save_directory = manual_save_directory or output_directory
         self.timeout_seconds = timeout_seconds
+        self.gui_callback = gui_callback
 
         # コンポーネントの初期化
         self.receiver = MIDIReceiver(port_name)
@@ -101,8 +104,11 @@ class MIDIMonitor:
             return filepath
 
         except Exception as e:
-            self.logger.log_error(f"バッファ保存に失敗しました: {e}")
-            raise FileWriteError(f"バッファ保存に失敗しました: {e}")
+            error_message = f"バッファ保存に失敗しました: {e}"
+            self.logger.log_error(error_message)
+            if self.gui_callback:
+                self.gui_callback(error_message)
+            raise FileWriteError(error_message)
 
     def manual_save(self) -> Optional[str]:
         """手動保存を実行する
@@ -133,24 +139,38 @@ class MIDIMonitor:
             if self.receiver.has_new_messages():
                 self.timer.reset_timer()
                 self.receiver.clear_new_messages_flag()
-                self.logger.log_info(
-                    "新しいメッセージを受信しました。タイマーをリセットしました。"
-                )
+                message = "新しいメッセージを受信しました。タイマーをリセットしました。"
 
         except Exception as e:
-            self.logger.log_error(f"MIDIイベント処理エラー: {e}")
+            error_message = f"MIDIイベント処理エラー: {e}"
+            self.logger.log_error(error_message)
+            if self.gui_callback:
+                self.gui_callback(error_message)
 
     def _auto_save_callback(self) -> None:
         """自動保存コールバック"""
         try:
-            self.logger.log_info("タイムアウトによる自動保存を実行します")
+            message = "タイムアウトによる自動保存を実行します"
+            self.logger.log_info(message)
+            if self.gui_callback:
+                self.gui_callback(message)
+
             if self.has_buffered_events():
                 filepath = self.save_current_buffer(is_manual_save=False)
-                self.logger.log_info(f"自動保存完了: {filepath}")
+                success_message = f"自動保存完了: {filepath}"
+                self.logger.log_info(success_message)
+                if self.gui_callback:
+                    self.gui_callback(success_message)
             else:
-                self.logger.log_info("自動保存: 保存するデータがありません")
+                no_data_message = "自動保存: 保存するデータがありません"
+                self.logger.log_info(no_data_message)
+                if self.gui_callback:
+                    self.gui_callback(no_data_message)
         except Exception as e:
-            self.logger.log_error(f"自動保存エラー: {e}")
+            error_message = f"自動保存エラー: {e}"
+            self.logger.log_error(error_message)
+            if self.gui_callback:
+                self.gui_callback(error_message)
 
     def get_status(self) -> dict:
         """現在の状態を取得する

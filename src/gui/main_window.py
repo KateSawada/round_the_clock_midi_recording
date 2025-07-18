@@ -177,6 +177,7 @@ class MIDIGUI:
                 output_directory=output_dir,
                 timeout_seconds=timeout,
                 manual_save_directory=manual_save_dir,
+                gui_callback=self.log_message,
             )
 
             # 監視を開始
