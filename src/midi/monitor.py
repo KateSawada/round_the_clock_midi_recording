@@ -129,9 +129,13 @@ class MIDIMonitor:
             # MIDIメッセージを受信
             self.receiver.receive_messages()
 
-            # メッセージが受信された場合はタイマーをリセット
-            if self.receiver.has_messages():
+            # 新しいメッセージが受信された場合はタイマーをリセット
+            if self.receiver.has_new_messages():
                 self.timer.reset_timer()
+                self.receiver.clear_new_messages_flag()
+                self.logger.log_info(
+                    "新しいメッセージを受信しました。タイマーをリセットしました。"
+                )
 
         except Exception as e:
             self.logger.log_error(f"MIDIイベント処理エラー: {e}")
@@ -139,8 +143,12 @@ class MIDIMonitor:
     def _auto_save_callback(self) -> None:
         """自動保存コールバック"""
         try:
+            self.logger.log_info("タイムアウトによる自動保存を実行します")
             if self.has_buffered_events():
-                self.save_current_buffer(is_manual_save=False)
+                filepath = self.save_current_buffer(is_manual_save=False)
+                self.logger.log_info(f"自動保存完了: {filepath}")
+            else:
+                self.logger.log_info("自動保存: 保存するデータがありません")
         except Exception as e:
             self.logger.log_error(f"自動保存エラー: {e}")
 

@@ -27,6 +27,7 @@ class MIDIReceiver:
         self._port: Optional[mido.ports.BaseInput] = None
         self.start_time: Optional[float] = None
         self.last_message_time: Optional[float] = None
+        self._new_messages_received = False
 
         # macOSではrtmidiバックエンドの設定を調整
         if platform.system() == "Darwin":
@@ -108,6 +109,9 @@ class MIDIReceiver:
             return
 
         try:
+            # 新しいメッセージが受信されたかどうかのフラグをリセット
+            self._new_messages_received = False
+
             # 非ブロッキングでメッセージを受信
             for message in self._port.iter_pending():
                 # タイムスタンプを設定
@@ -129,10 +133,23 @@ class MIDIReceiver:
                 message.time = delta_time
                 self.messages.append(message)
                 self.last_message_time = current_time
+                self._new_messages_received = True
 
         except Exception as e:
             # 受信エラーをログに記録
             print(f"MIDI受信エラー: {e}")
+
+    def has_new_messages(self) -> bool:
+        """新しいメッセージが受信されたかどうかを確認する
+
+        Returns:
+            新しいメッセージが受信された場合はTrue
+        """
+        return self._new_messages_received
+
+    def clear_new_messages_flag(self) -> None:
+        """新しいメッセージフラグをクリアする"""
+        self._new_messages_received = False
 
     def get_message_count(self) -> int:
         """蓄積されたメッセージ数を取得する
