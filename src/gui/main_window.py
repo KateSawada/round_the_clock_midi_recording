@@ -16,6 +16,9 @@ from ..utils.logger import Logger
 class MIDIGUI:
     """MIDI録音システムのGUIクラス"""
 
+    # ログ関連の定数
+    MAX_LOG_LINES = 100  # ログの最大行数
+
     def __init__(self, config_file: str = "config/config.yaml"):
         """MIDIGUIを初期化する
 
@@ -147,12 +150,20 @@ class MIDIGUI:
         )
 
         # ログ表示エリア
-        self.log_area = ft.TextField(
-            label="ログ",
-            multiline=True,
-            read_only=True,
-            min_lines=5,
-            max_lines=10,
+        self.log_list_view = ft.ListView(
+            expand=1,
+            spacing=4,
+            padding=4,
+            auto_scroll=True,
+        )
+
+        self.log_area = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text("ログ", size=16, weight=ft.FontWeight.BOLD),
+                    self.log_list_view,
+                ]
+            ),
             expand=True,
         )
 
@@ -201,7 +212,6 @@ class MIDIGUI:
                         alignment=ft.MainAxisAlignment.CENTER,
                     ),
                     ft.Divider(),
-                    ft.Text("ログ", size=16, weight=ft.FontWeight.BOLD),
                     self.log_area,
                 ],
                 expand=True,
@@ -230,7 +240,7 @@ class MIDIGUI:
                     filepath = self.monitor.save_current_buffer()
 
                     # GUIが利用可能な場合はログメッセージを表示
-                    if self.page and self.log_area:
+                    if self.page and self.log_list_view:
                         self.log_message(f"終了時保存: {filepath}")
 
                     self.logger.log_info(
@@ -245,7 +255,7 @@ class MIDIGUI:
             error_msg = f"終了時保存エラー: {e}"
 
             # GUIが利用可能な場合はログメッセージを表示
-            if self.page and self.log_area:
+            if self.page and self.log_list_view:
                 self.log_message(error_msg)
 
             self.logger.log_error(error_msg)
@@ -374,17 +384,20 @@ class MIDIGUI:
     def log_message(self, message: str):
         """ログメッセージを表示する"""
         try:
-            if self.log_area and self.page:
+            if self.log_list_view and self.page:
                 current_time = time.strftime("%H:%M:%S")
-                log_entry = f"[{current_time}] {message}\n"
-                self.log_area.value += log_entry
+                log_entry = ft.Text(f"[{current_time}] {message}", size=12)
+                self.log_list_view.controls.append(log_entry)
 
                 # ログが長すぎる場合は古い部分を削除
-                lines = self.log_area.value.split("\n")
-                if len(lines) > 50:
-                    self.log_area.value = "\n".join(lines[-40:])
+                if len(self.log_list_view.controls) > self.MAX_LOG_LINES:
+                    self.log_list_view.controls = self.log_list_view.controls[
+                        -self.MAX_LOG_LINES :
+                    ]
 
+                # ページを更新
                 self.page.update()
+
         except Exception as e:
             # GUIが利用できない場合はログファイルのみに記録
             self.logger.log_error(f"ログメッセージ表示エラー: {e}")
