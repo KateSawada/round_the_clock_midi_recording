@@ -29,6 +29,7 @@ class MIDIReceiver:
         self.start_time: Optional[float] = None
         self.last_message_time: Optional[float] = None
         self._new_messages_received = False
+        self._previous_message_count = 0  # 前回のメッセージ数を記録
         self.device_manager = MIDIDeviceManager()
 
         # macOSではrtmidiバックエンドの設定を調整
@@ -133,10 +134,8 @@ class MIDIReceiver:
             return
 
         try:
-            # 新しいメッセージが受信されたかどうかのフラグをリセット
-            self._new_messages_received = False
-
             # 非ブロッキングでメッセージを受信
+            message_received = False
             for message in self._port.iter_pending():
                 # タイムスタンプを設定
                 current_time = time.time()
@@ -157,6 +156,10 @@ class MIDIReceiver:
                 message.time = delta_time
                 self.messages.append(message)
                 self.last_message_time = current_time
+                message_received = True
+
+            # メッセージが受信された場合に新しいメッセージフラグを設定
+            if message_received:
                 self._new_messages_received = True
 
         except Exception as e:
@@ -185,6 +188,10 @@ class MIDIReceiver:
 
     def clear_messages(self) -> None:
         """メッセージバッファをクリアする"""
+        self._previous_message_count = len(
+            self.messages
+        )  # クリア前のメッセージ数を記録
         self.messages.clear()
-        self.start_time = None
-        self.last_message_time = None
+        # start_timeとlast_message_timeは保持して、タイムスタンプ計算を継続する
+        # self.start_time = None
+        # self.last_message_time = None

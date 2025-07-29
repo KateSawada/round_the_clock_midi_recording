@@ -332,9 +332,12 @@ class MIDIGUI:
     def manual_save(self, _):
         """手動保存を実行する"""
         try:
-            if self.monitor and self.monitor.has_buffered_events():
+            if self.monitor:
                 filepath = self.monitor.manual_save()
-                self.log_message(f"手動保存完了: {filepath}")
+                if filepath:
+                    self.log_message(f"手動保存完了: {filepath}")
+                else:
+                    self.log_message("手動保存: 保存するファイルがありません")
             else:
                 self.log_message("保存するデータがありません")
 

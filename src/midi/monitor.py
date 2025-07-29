@@ -119,13 +119,75 @@ class MIDIMonitor:
         Returns:
             保存されたファイルパス（バッファが空の場合はNone）
         """
-        filepath = self.save_current_buffer(is_manual_save=True)
+        # バッファが空かどうかをチェック
+        if not self.receiver.has_messages():
+            # バッファが空の場合：最新の自動保存済みファイルをコピー
+            try:
+                copied_filepath = self.writer.copy_latest_auto_save_to_manual_save()
+                if copied_filepath:
+                    # 手動保存後にタイマーをリセット
+                    self.timer.reset_timer()
+                    # デバッグ情報を追加
+                    self.logger.log_info(
+                        f"手動保存完了（バッファ空）: {copied_filepath}, "
+                        f"タイマーリセット実行"
+                    )
+                    return copied_filepath
+                else:
+                    # コピーに失敗した場合
+                    self.logger.log_info("手動保存: コピーするファイルがありません")
+                    return None
+            except Exception as e:
+                # コピーに失敗した場合
+                self.logger.log_error(f"手動保存時のファイルコピーエラー: {e}")
+                return None
+        else:
+            # バッファが空でない場合：自動保存処理を実行してから最新のファイルをコピー
+            filepath = self.save_current_buffer(is_manual_save=False)
 
-        # 手動保存後はバッファをクリアする
-        if filepath:
-            self.receiver.clear_messages()
+            if filepath:
+                # 自動保存用ディレクトリの最新ファイルを手動保存ディレクトリにコピー
+                try:
+                    copied_filepath = self.writer.copy_latest_auto_save_to_manual_save()
+                    if copied_filepath:
+                        # 手動保存後はバッファをクリアする
+                        self.receiver.clear_messages()
+                        # 手動保存後にタイマーをリセットして、新しいMIDIイベントの監視を継続
+                        self.timer.reset_timer()
+                        # デバッグ情報を追加
+                        self.logger.log_info(
+                            f"手動保存完了（バッファあり）: {copied_filepath}, "
+                            f"タイマーリセット実行, "
+                            f"バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                        )
+                        return copied_filepath
+                    else:
+                        # コピーに失敗した場合は元のファイルパスを返す
+                        self.receiver.clear_messages()
+                        # 手動保存後にタイマーをリセット
+                        self.timer.reset_timer()
+                        # デバッグ情報を追加
+                        self.logger.log_info(
+                            f"手動保存完了（コピー失敗）: {filepath}, "
+                            f"タイマーリセット実行, "
+                            f"バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                        )
+                        return filepath
+                except Exception as e:
+                    # コピーに失敗した場合は元のファイルパスを返す
+                    self.logger.log_error(f"手動保存時のファイルコピーエラー: {e}")
+                    self.receiver.clear_messages()
+                    # 手動保存後にタイマーをリセット
+                    self.timer.reset_timer()
+                    # デバッグ情報を追加
+                    self.logger.log_info(
+                        f"手動保存完了（エラー）: {filepath}, "
+                        f"タイマーリセット実行, "
+                        f"バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                    )
+                    return filepath
 
-        return filepath
+        return None
 
     def has_buffered_events(self) -> bool:
         """バッファにイベントがあるかチェックする
@@ -146,12 +208,21 @@ class MIDIMonitor:
 
             # 新しいメッセージが受信された場合はタイマーをリセット
             if self.receiver.has_new_messages():
+                # タイマーをリセット
                 self.timer.reset_timer()
                 self.receiver.clear_new_messages_flag()
+
                 message = "新しいメッセージを受信しました。タイマーをリセットしました。"
                 self.logger.log_info(message)
                 if self.gui_callback:
                     self.gui_callback(message)
+
+                # デバッグ情報を追加
+                debug_message = (
+                    f"デバッグ: メッセージ数={self.receiver.get_message_count()}, "
+                    f"タイマー実行中={self.timer.is_running()}"
+                )
+                self.logger.log_info(debug_message)
 
         except Exception as e:
             error_message = f"MIDIイベント処理エラー: {e}"
@@ -167,12 +238,25 @@ class MIDIMonitor:
             if self.gui_callback:
                 self.gui_callback(message)
 
+            # デバッグ情報を追加
+            debug_message = (
+                f"自動保存デバッグ: メッセージ数={self.receiver.get_message_count()}, "
+                f"バッファにイベント={self.has_buffered_events()}"
+            )
+            self.logger.log_info(debug_message)
+
             if self.has_buffered_events():
                 filepath = self.save_current_buffer(is_manual_save=False)
                 success_message = f"自動保存完了: {filepath}"
                 self.logger.log_info(success_message)
                 if self.gui_callback:
                     self.gui_callback(success_message)
+
+                # 自動保存後にバッファをクリアする
+                self.receiver.clear_messages()
+                self.logger.log_info(
+                    f"自動保存後バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                )
             else:
                 no_data_message = "自動保存: 保存するデータがありません"
                 self.logger.log_info(no_data_message)

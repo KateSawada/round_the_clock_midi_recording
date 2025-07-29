@@ -39,13 +39,17 @@ class AutoSaveTimer:
 
     def reset_timer(self) -> None:
         """タイマーをリセットする"""
-        if self._is_running and self._timer:
+        if self._timer:
             self._timer.cancel()
-            if self._callback:
-                self._timer = threading.Timer(
-                    self.timeout_seconds, self._execute_callback
-                )
-                self._timer.start()
+        if self._callback:
+            self._timer = threading.Timer(self.timeout_seconds, self._execute_callback)
+            self._timer.start()
+            self._is_running = True
+            # デバッグ情報を追加
+            print(
+                f"Timer reset: timeout={self.timeout_seconds}s, "
+                f"running={self._is_running}"
+            )
 
     def stop_timer(self) -> None:
         """タイマーを停止する"""
@@ -59,11 +63,23 @@ class AutoSaveTimer:
         """コールバックを実行する"""
         if self._callback:
             try:
+                print(f"Timer callback executed: timeout={self.timeout_seconds}s")
                 self._callback()
+                # コールバック実行後もタイマーを継続する（新しいタイマーを開始）
+                if self._is_running:
+                    self._timer = threading.Timer(
+                        self.timeout_seconds, self._execute_callback
+                    )
+                    self._timer.start()
             except Exception as e:
                 # コールバック実行中のエラーをログに記録
                 print(f"Timer callback error: {e}")
-        self._is_running = False
+                # エラーが発生した場合もタイマーを継続する
+                if self._is_running:
+                    self._timer = threading.Timer(
+                        self.timeout_seconds, self._execute_callback
+                    )
+                    self._timer.start()
 
     def is_running(self) -> bool:
         """タイマーが実行中かどうかを確認する

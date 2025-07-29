@@ -1,6 +1,7 @@
 """MIDIファイル書き込みモジュール"""
 
 import os
+import shutil
 from datetime import datetime
 from typing import List, Optional
 
@@ -88,6 +89,52 @@ class MIDIFileWriter:
 
         except Exception as e:
             raise FileWriteError(f"ファイル書き込みに失敗しました: {e}")
+
+    def copy_latest_auto_save_to_manual_save(self) -> Optional[str]:
+        """自動保存ディレクトリの最新ファイルを手動保存ディレクトリにコピーする
+
+        Returns:
+            コピーされたファイルのパス（ファイルがない場合はNone）
+        """
+        try:
+            # 自動保存ディレクトリの最新ファイルを取得
+            latest_file = self._get_latest_auto_save_file()
+            if not latest_file:
+                return None
+
+            # 手動保存用のファイル名を生成
+            manual_filename = self._generate_filename(is_manual_save=True)
+            manual_filepath = os.path.join(self.manual_save_directory, manual_filename)
+
+            # ファイルをコピー
+            shutil.copy2(latest_file, manual_filepath)
+
+            return manual_filepath
+
+        except Exception as e:
+            raise FileWriteError(f"最新ファイルのコピーに失敗しました: {e}")
+
+    def _get_latest_auto_save_file(self) -> Optional[str]:
+        """自動保存ディレクトリの最新ファイルを取得する
+
+        Returns:
+            最新ファイルのパス（ファイルがない場合はNone）
+        """
+        if not os.path.exists(self.output_directory):
+            return None
+
+        # .midファイルのみを対象とする
+        midi_files = []
+        for filename in os.listdir(self.output_directory):
+            if filename.endswith(".mid") and not filename.startswith("manual_save_"):
+                filepath = os.path.join(self.output_directory, filename)
+                midi_files.append(filepath)
+
+        if not midi_files:
+            return None
+
+        # 最新のファイルを返す（ファイル名のタイムスタンプで判定）
+        return max(midi_files, key=os.path.getctime)
 
     def _normalize_timestamps(self, messages: List[mido.Message]) -> List[mido.Message]:
         """タイムスタンプを正規化して最初のメッセージを0にする
