@@ -43,15 +43,18 @@ class MIDIMonitor:
 
         self.is_monitoring = False
 
-    def start_monitoring(self) -> None:
+    def start_monitoring(self, interactive_selection: bool = True) -> None:
         """監視を開始する
+
+        Args:
+            interactive_selection: ポートが見つからない場合に対話的選択を行うかどうか
 
         Raises:
             MIDIError: MIDIポートのオープンに失敗した場合
         """
         try:
-            # MIDI受信を開始
-            self.receiver.start_recording()
+            # MIDI受信を開始（デバイス選択機能付き）
+            self.receiver.start_recording(interactive_selection=interactive_selection)
 
             # 自動保存タイマーを開始
             self.timer.start_timer(self._auto_save_callback)
@@ -87,8 +90,8 @@ class MIDIMonitor:
             return None
 
         try:
-            # メッセージを取得
-            messages = self.receiver.get_messages()
+            # メッセージを取得（バッファはクリアしない）
+            messages = self.receiver.get_messages_without_clear()
 
             # ファイルに書き込み
             filepath = self.writer.write_messages(
@@ -116,7 +119,13 @@ class MIDIMonitor:
         Returns:
             保存されたファイルパス（バッファが空の場合はNone）
         """
-        return self.save_current_buffer(is_manual_save=True)
+        filepath = self.save_current_buffer(is_manual_save=True)
+
+        # 手動保存後はバッファをクリアする
+        if filepath:
+            self.receiver.clear_messages()
+
+        return filepath
 
     def has_buffered_events(self) -> bool:
         """バッファにイベントがあるかチェックする
@@ -140,6 +149,9 @@ class MIDIMonitor:
                 self.timer.reset_timer()
                 self.receiver.clear_new_messages_flag()
                 message = "新しいメッセージを受信しました。タイマーをリセットしました。"
+                self.logger.log_info(message)
+                if self.gui_callback:
+                    self.gui_callback(message)
 
         except Exception as e:
             error_message = f"MIDIイベント処理エラー: {e}"

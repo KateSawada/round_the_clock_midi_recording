@@ -8,6 +8,7 @@ from typing import Optional
 import flet as ft
 
 from ..config.manager import ConfigManager
+from ..midi.device_manager import MIDIDeviceManager
 from ..midi.monitor import MIDIMonitor
 from ..utils.logger import Logger
 
@@ -23,6 +24,7 @@ class MIDIGUI:
         """
         self.config_manager = ConfigManager(config_file)
         self.logger = Logger()
+        self.device_manager = MIDIDeviceManager()
         self.monitor: Optional[MIDIMonitor] = None
         self.page: Optional[ft.Page] = None
 
@@ -65,6 +67,47 @@ class MIDIGUI:
         # ポート情報表示
         port_name = self.midi_config.get("port_name", "default")
         self.port_info_text = ft.Text(f"ポート: {port_name}", size=12)
+
+        # デバイス選択UI（初期状態では非表示）
+        self.device_list_column = ft.Column(
+            scroll=ft.ScrollMode.AUTO,
+            height=300,
+            spacing=5,
+        )
+
+        self.device_selection_container = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text("MIDIデバイスを選択", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text("利用可能なMIDIデバイスから選択してください:", size=14),
+                    ft.Divider(),
+                    self.device_list_column,  # デバイスリスト用
+                    ft.Row(
+                        [
+                            ft.ElevatedButton(
+                                "キャンセル", on_click=self.hide_device_selection
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                    ),
+                ]
+            ),
+            visible=False,
+            bgcolor=ft.Colors.WHITE,
+            border=ft.border.all(1, ft.Colors.GREY_400),
+            border_radius=8,
+            padding=20,
+        )
+
+        # デバイス選択ボタン
+        self.select_device_button = ft.ElevatedButton(
+            "デバイス選択",
+            on_click=self.show_device_selection_dialog,
+            style=ft.ButtonStyle(
+                color=ft.Colors.WHITE,
+                bgcolor=ft.Colors.BLUE,
+            ),
+        )
 
         # 出力ディレクトリ表示
         output_dir = self.config_manager.get_output_directory()
@@ -143,6 +186,7 @@ class MIDIGUI:
                     ft.Row(
                         [
                             self.port_info_text,
+                            self.select_device_button,
                             self.output_info_text,
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -163,6 +207,9 @@ class MIDIGUI:
                 expand=True,
             )
         )
+
+        # 起動時のデバイスチェック
+        self.check_device_on_startup()
 
         # 監視スレッドを開始
         self.start_monitoring_thread()
@@ -206,6 +253,10 @@ class MIDIGUI:
     def start_recording(self, _):
         """録音を開始する"""
         try:
+            # デバイスの可用性をチェック
+            if not self.check_and_select_device():
+                return
+
             # MIDIモニターを初期化
             port_name = self.midi_config.get("port_name", "default")
             output_dir = self.config_manager.get_output_directory()
@@ -338,3 +389,177 @@ class MIDIGUI:
             # GUIが利用できない場合はログファイルのみに記録
             self.logger.log_error(f"ログメッセージ表示エラー: {e}")
             self.logger.log_info(message)
+
+    def show_device_selection_dialog(self, _):
+        """デバイス選択ダイアログを表示する"""
+        try:
+            # デバッグログを追加
+            self.log_message("デバイス選択ボタンがクリックされました")
+            self.logger.log_info("デバイス選択ボタンがクリックされました")
+
+            available_ports = self.device_manager.get_available_input_ports()
+            current_port = self.midi_config.get("port_name", "default")
+
+            self.log_message(f"利用可能なポート: {available_ports}")
+            self.log_message(f"現在のポート: {current_port}")
+
+            if not available_ports:
+                self.log_message("利用可能なMIDIデバイスが見つかりません")
+                return
+
+            # デバイス選択UIを表示
+            self.device_selection_container.visible = True
+            self.page.add(self.device_selection_container)
+
+            # デバイスリストを更新
+            self.device_list_column.controls = []  # 既存のコントロールをクリア
+
+            for i, port in enumerate(available_ports):
+                # 現在選択されているポートかどうかを判定
+                is_current = port == current_port
+                status_text = "現在選択中" if is_current else "利用可能"
+                status_color = ft.Colors.GREEN if is_current else ft.Colors.GREY
+
+                # ラムダ関数の問題を修正
+                def create_click_handler(selected_port):
+                    def click_handler(e):
+                        self.select_device(selected_port)
+
+                    return click_handler
+
+                self.device_list_column.controls.append(
+                    ft.ListTile(
+                        leading=ft.Icon("music_note", color=status_color),
+                        title=ft.Text(
+                            port,
+                            weight=(
+                                ft.FontWeight.BOLD
+                                if is_current
+                                else ft.FontWeight.NORMAL
+                            ),
+                        ),
+                        subtitle=ft.Text(
+                            f"MIDI入力ポート {i+1} - {status_text}", color=status_color
+                        ),
+                        on_click=create_click_handler(port),
+                        selected=is_current,
+                    )
+                )
+
+            self.page.update()
+            self.log_message("デバイス選択UIを表示しました")
+            self.log_message(
+                f"デバイスリストに {len(available_ports)} 個のデバイスを追加しました"
+            )
+            self.log_message(
+                f"デバイスリストのコントロール数: {len(self.device_list_column.controls)}"
+            )
+
+        except Exception as e:
+            self.log_message(f"デバイス選択エラー: {e}")
+            self.logger.log_error(f"デバイス選択エラー: {e}")
+            import traceback
+
+            self.log_message(f"エラー詳細: {traceback.format_exc()}")
+
+    def select_device(self, port_name: str):
+        """デバイスを選択する"""
+        try:
+            # 設定を更新
+            self.config_manager.update_config("midi", "port_name", port_name)
+
+            # 設定を再読み込み
+            self.midi_config = self.config_manager.get_midi_config()
+
+            # UIを更新
+            self.port_info_text.value = f"ポート: {port_name}"
+            self.page.update()
+
+            # デバイス選択UIを非表示にする
+            self.hide_device_selection(None)
+
+            # ログメッセージを表示
+            self.log_message(f"デバイスを選択しました: {port_name}")
+            self.logger.log_info(f"デバイスを選択しました: {port_name}")
+
+            # デバイス接続テスト
+            if self.device_manager.test_port_connection(port_name):
+                self.log_message(f"デバイス '{port_name}' の接続テストが成功しました")
+                self.logger.log_info(
+                    f"デバイス '{port_name}' の接続テストが成功しました"
+                )
+            else:
+                self.log_message(
+                    f"警告: デバイス '{port_name}' の接続テストに失敗しました"
+                )
+                self.logger.log_info(
+                    f"デバイス '{port_name}' の接続テストに失敗しました"
+                )
+
+        except Exception as e:
+            self.log_message(f"デバイス選択エラー: {e}")
+            self.logger.log_error(f"デバイス選択エラー: {e}")
+
+    def hide_device_selection(self, _):
+        """デバイス選択UIを非表示にする"""
+        try:
+            if self.device_selection_container.visible:
+                self.device_selection_container.visible = False
+                self.page.update()
+                self.log_message("デバイス選択UIを非表示にしました")
+        except Exception as e:
+            self.log_message(f"デバイス選択UI非表示エラー: {e}")
+            self.logger.log_error(f"デバイス選択UI非表示エラー: {e}")
+
+    def check_and_select_device(self) -> bool:
+        """デバイスの可用性をチェックし、必要に応じて選択を促す"""
+        try:
+            port_name = self.midi_config.get("port_name", "default")
+
+            if not self.device_manager.is_port_available(port_name):
+                available_ports = self.device_manager.get_available_input_ports()
+
+                if not available_ports:
+                    self.log_message("利用可能なMIDIデバイスが見つかりません")
+                    return False
+
+                # 最初の利用可能なポートを自動選択
+                if len(available_ports) == 1:
+                    selected_port = available_ports[0]
+                    self.config_manager.update_config(
+                        "midi", "port_name", selected_port
+                    )
+                    self.midi_config = self.config_manager.get_midi_config()
+                    self.port_info_text.value = f"ポート: {selected_port}"
+                    self.page.update()
+                    self.log_message(f"デバイスを自動選択しました: {selected_port}")
+                    return True
+                else:
+                    # 複数のデバイスがある場合は選択を促す
+                    self.log_message(f"設定されたポート '{port_name}' が見つかりません")
+                    self.log_message(
+                        "デバイス選択ボタンから利用可能なデバイスを選択してください"
+                    )
+                    return False
+
+            return True
+
+        except Exception as e:
+            self.log_message(f"デバイスチェックエラー: {e}")
+            self.logger.log_error(f"デバイスチェックエラー: {e}")
+            return False
+
+    def check_device_on_startup(self):
+        """アプリケーション起動時にデバイスの可用性をチェックし、必要に応じてデバイス選択ダイアログを表示する"""
+        try:
+            port_name = self.midi_config.get("port_name", "default")
+            if not self.device_manager.is_port_available(port_name):
+                self.log_message(
+                    f"設定されたポート '{port_name}' が見つかりません。デバイスを選択してください。"
+                )
+                self.show_device_selection_dialog(None)
+            else:
+                self.log_message(f"設定されたポート '{port_name}' が見つかりました。")
+        except Exception as e:
+            self.log_message(f"起動時デバイスチェックエラー: {e}")
+            self.logger.log_error(f"起動時デバイスチェックエラー: {e}")

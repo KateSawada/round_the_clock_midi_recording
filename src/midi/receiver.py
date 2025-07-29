@@ -7,6 +7,7 @@ from typing import List, Optional
 import mido
 
 from ..utils.exceptions import MIDIError
+from .device_manager import MIDIDeviceManager
 
 
 class MIDIReceiver:
@@ -28,6 +29,7 @@ class MIDIReceiver:
         self.start_time: Optional[float] = None
         self.last_message_time: Optional[float] = None
         self._new_messages_received = False
+        self.device_manager = MIDIDeviceManager()
 
         # macOSではrtmidiバックエンドの設定を調整
         if platform.system() == "Darwin":
@@ -44,15 +46,18 @@ class MIDIReceiver:
                 # バックエンド設定に失敗した場合はデフォルトを使用
                 pass
 
-    def start_recording(self) -> None:
+    def start_recording(self, interactive_selection: bool = True) -> None:
         """MIDI受信を開始する
+
+        Args:
+            interactive_selection: ポートが見つからない場合に対話的選択を行うかどうか
 
         Raises:
             MIDIError: ポートのオープンに失敗した場合
         """
         try:
             # 利用可能なポートを確認
-            available_ports = mido.get_input_names()
+            available_ports = self.device_manager.get_available_input_ports()
 
             if not available_ports:
                 raise MIDIError("利用可能なMIDIポートが見つかりません")
@@ -63,9 +68,20 @@ class MIDIReceiver:
 
             # 指定されたポートが存在するか確認
             if self.port_name not in available_ports:
-                raise MIDIError(
-                    f"ポート '{self.port_name}' が見つかりません。利用可能なポート: {available_ports}"
-                )
+                if interactive_selection:
+                    # 対話的にポートを選択
+                    selected_port = self.device_manager.select_port_interactive(
+                        self.port_name
+                    )
+                    if selected_port:
+                        self.port_name = selected_port
+                    else:
+                        raise MIDIError("ポートの選択がキャンセルされました")
+                else:
+                    raise MIDIError(
+                        f"ポート '{self.port_name}' が見つかりません。"
+                        f"利用可能なポート: {available_ports}"
+                    )
 
             # ポートを開く
             self._port = mido.open_input(self.port_name)
@@ -91,9 +107,17 @@ class MIDIReceiver:
         Returns:
             MIDIメッセージのリスト
         """
-        messages = self.messages.copy()
+        messages = self.get_messages_without_clear()
         self.messages.clear()
         return messages
+
+    def get_messages_without_clear(self) -> List[mido.Message]:
+        """蓄積されたメッセージを取得する（バッファはクリアしない）
+
+        Returns:
+            MIDIメッセージのリスト
+        """
+        return self.messages.copy()
 
     def has_messages(self) -> bool:
         """メッセージがあるかどうかを確認する
