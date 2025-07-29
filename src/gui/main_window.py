@@ -48,12 +48,9 @@ class MIDIGUI:
         """
         self.page = page
         page.title = self.gui_config.get("window_title", "MIDI Recording System")
-        theme_mode = (
-            ft.ThemeMode.LIGHT
-            if self.gui_config.get("theme_mode") == "light"
-            else ft.ThemeMode.DARK
-        )
-        page.theme_mode = theme_mode
+
+        # ダークテーマを設定
+        page.theme_mode = ft.ThemeMode.DARK
         page.window_width = 600
         page.window_height = 400
         page.window_resizable = True
@@ -96,8 +93,8 @@ class MIDIGUI:
                 ]
             ),
             visible=False,
-            bgcolor=ft.Colors.WHITE,
-            border=ft.border.all(1, ft.Colors.GREY_400),
+            bgcolor=ft.Colors.GREY_900,
+            border=ft.border.all(1, ft.Colors.GREY_600),
             border_radius=8,
             padding=20,
         )
@@ -165,6 +162,10 @@ class MIDIGUI:
                 ]
             ),
             expand=True,
+            bgcolor=ft.Colors.GREY_900,
+            border=ft.border.all(1, ft.Colors.GREY_600),
+            border_radius=8,
+            padding=10,
         )
 
         # レイアウト
@@ -386,7 +387,11 @@ class MIDIGUI:
         try:
             if self.log_list_view and self.page:
                 current_time = time.strftime("%H:%M:%S")
-                log_entry = ft.Text(f"[{current_time}] {message}", size=12)
+                log_entry = ft.Text(
+                    f"[{current_time}] {message}",
+                    size=12,
+                    color=ft.Colors.WHITE,
+                )
                 self.log_list_view.controls.append(log_entry)
 
                 # ログが長すぎる場合は古い部分を削除
