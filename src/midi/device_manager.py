@@ -30,10 +30,10 @@ class MIDIDeviceManager:
         """
         try:
             ports = mido.get_input_names()
-            print(f"利用可能なMIDI入力ポート: {ports}")  # デバッグ用
+            print(f"Available MIDI input ports: {ports}")  # デバッグ用
             return ports
         except Exception as e:
-            print(f"MIDIポート取得エラー: {e}")  # デバッグ用
+            print(f"MIDI port retrieval error: {e}")  # デバッグ用
             return []
 
     def get_available_output_ports(self) -> List[str]:
@@ -71,37 +71,37 @@ class MIDIDeviceManager:
         available_ports = self.get_available_input_ports()
 
         if not available_ports:
-            print("利用可能なMIDI入力ポートが見つかりません。")
+            print("No available MIDI input ports found.")
             return None
 
-        print(f"\n現在の設定ポート '{current_port_name}' が見つかりません。")
-        print("利用可能なMIDI入力ポート:")
+        print(f"\nConfigured port '{current_port_name}' not found.")
+        print("Available MIDI input ports:")
 
         for i, port in enumerate(available_ports, 1):
             print(f"  {i}. {port}")
 
-        print(f"  {len(available_ports) + 1}. キャンセル")
+        print(f"  {len(available_ports) + 1}. Cancel")
 
         while True:
             try:
                 choice = input(
-                    f"\nポートを選択してください (1-{len(available_ports) + 1}): "
+                    f"\nPlease select a port (1-{len(available_ports) + 1}): "
                 )
                 choice_num = int(choice)
 
                 if 1 <= choice_num <= len(available_ports):
                     selected_port = available_ports[choice_num - 1]
-                    print(f"選択されたポート: {selected_port}")
+                    print(f"Selected port: {selected_port}")
                     return selected_port
                 elif choice_num == len(available_ports) + 1:
-                    print("キャンセルされました。")
+                    print("Cancelled.")
                     return None
                 else:
-                    print("無効な選択です。")
+                    print("Invalid selection.")
             except ValueError:
-                print("数値を入力してください。")
+                print("Please enter a number.")
             except KeyboardInterrupt:
-                print("\nキャンセルされました。")
+                print("\nCancelled.")
                 return None
 
     def get_port_info(self, port_name: str) -> Optional[dict]:

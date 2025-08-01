@@ -129,17 +129,17 @@ class MIDIMonitor:
                     self.timer.reset_timer()
                     # デバッグ情報を追加
                     self.logger.log_info(
-                        f"手動保存完了（バッファ空）: {copied_filepath}, "
-                        f"タイマーリセット実行"
+                        f"Manual save completed (empty buffer): {copied_filepath}, "
+                        f"Timer reset executed"
                     )
                     return copied_filepath
                 else:
                     # コピーに失敗した場合
-                    self.logger.log_info("手動保存: コピーするファイルがありません")
+                    self.logger.log_info("Manual save: No file to copy")
                     return None
             except Exception as e:
                 # コピーに失敗した場合
-                self.logger.log_error(f"手動保存時のファイルコピーエラー: {e}")
+                self.logger.log_error(f"Manual save file copy error: {e}")
                 return None
         else:
             # バッファが空でない場合：自動保存処理を実行してから最新のファイルをコピー
@@ -156,9 +156,9 @@ class MIDIMonitor:
                         self.timer.reset_timer()
                         # デバッグ情報を追加
                         self.logger.log_info(
-                            f"手動保存完了（バッファあり）: {copied_filepath}, "
-                            f"タイマーリセット実行, "
-                            f"バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                            f"Manual save completed (with buffer): {copied_filepath}, "
+                            f"Timer reset executed, "
+                            f"Buffer cleared (Message count: {self.receiver.get_message_count()})"
                         )
                         return copied_filepath
                     else:
@@ -168,22 +168,22 @@ class MIDIMonitor:
                         self.timer.reset_timer()
                         # デバッグ情報を追加
                         self.logger.log_info(
-                            f"手動保存完了（コピー失敗）: {filepath}, "
-                            f"タイマーリセット実行, "
-                            f"バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                            f"Manual save completed (copy failed): {filepath}, "
+                            f"Timer reset executed, "
+                            f"Buffer cleared (Message count: {self.receiver.get_message_count()})"
                         )
                         return filepath
                 except Exception as e:
                     # コピーに失敗した場合は元のファイルパスを返す
-                    self.logger.log_error(f"手動保存時のファイルコピーエラー: {e}")
+                    self.logger.log_error(f"Manual save file copy error: {e}")
                     self.receiver.clear_messages()
                     # 手動保存後にタイマーをリセット
                     self.timer.reset_timer()
                     # デバッグ情報を追加
                     self.logger.log_info(
-                        f"手動保存完了（エラー）: {filepath}, "
-                        f"タイマーリセット実行, "
-                        f"バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                        f"Manual save completed (error): {filepath}, "
+                        f"Timer reset executed, "
+                        f"Buffer cleared (Message count: {self.receiver.get_message_count()})"
                     )
                     return filepath
 
@@ -212,20 +212,20 @@ class MIDIMonitor:
                 self.timer.reset_timer()
                 self.receiver.clear_new_messages_flag()
 
-                message = "新しいメッセージを受信しました。タイマーをリセットしました。"
+                message = "New message received. Timer reset."
                 self.logger.log_info(message)
                 if self.gui_callback:
                     self.gui_callback(message)
 
                 # デバッグ情報を追加
                 debug_message = (
-                    f"デバッグ: メッセージ数={self.receiver.get_message_count()}, "
-                    f"タイマー実行中={self.timer.is_running()}"
+                    f"Debug: Message count={self.receiver.get_message_count()}, "
+                    f"Timer running={self.timer.is_running()}"
                 )
                 self.logger.log_info(debug_message)
 
         except Exception as e:
-            error_message = f"MIDIイベント処理エラー: {e}"
+            error_message = f"MIDI event processing error: {e}"
             self.logger.log_error(error_message)
             if self.gui_callback:
                 self.gui_callback(error_message)
@@ -233,21 +233,21 @@ class MIDIMonitor:
     def _auto_save_callback(self) -> None:
         """自動保存コールバック"""
         try:
-            message = "タイムアウトによる自動保存を実行します"
+            message = "Executing auto save due to timeout"
             self.logger.log_info(message)
             if self.gui_callback:
                 self.gui_callback(message)
 
             # デバッグ情報を追加
             debug_message = (
-                f"自動保存デバッグ: メッセージ数={self.receiver.get_message_count()}, "
-                f"バッファにイベント={self.has_buffered_events()}"
+                f"Auto save debug: Message count={self.receiver.get_message_count()}, "
+                f"Buffer has events={self.has_buffered_events()}"
             )
             self.logger.log_info(debug_message)
 
             if self.has_buffered_events():
                 filepath = self.save_current_buffer(is_manual_save=False)
-                success_message = f"自動保存完了: {filepath}"
+                success_message = f"Auto save completed: {filepath}"
                 self.logger.log_info(success_message)
                 if self.gui_callback:
                     self.gui_callback(success_message)
@@ -255,15 +255,15 @@ class MIDIMonitor:
                 # 自動保存後にバッファをクリアする
                 self.receiver.clear_messages()
                 self.logger.log_info(
-                    f"自動保存後バッファクリア（メッセージ数: {self.receiver.get_message_count()}）"
+                    f"Buffer cleared after auto save (Message count: {self.receiver.get_message_count()})"
                 )
             else:
-                no_data_message = "自動保存: 保存するデータがありません"
+                no_data_message = "Auto save: No data to save"
                 self.logger.log_info(no_data_message)
                 if self.gui_callback:
                     self.gui_callback(no_data_message)
         except Exception as e:
-            error_message = f"自動保存エラー: {e}"
+            error_message = f"Auto save error: {e}"
             self.logger.log_error(error_message)
             if self.gui_callback:
                 self.gui_callback(error_message)

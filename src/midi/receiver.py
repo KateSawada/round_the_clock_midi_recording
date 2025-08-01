@@ -164,7 +164,7 @@ class MIDIReceiver:
 
         except Exception as e:
             # 受信エラーをログに記録
-            print(f"MIDI受信エラー: {e}")
+            print(f"MIDI receive error: {e}")
 
     def has_new_messages(self) -> bool:
         """新しいメッセージが受信されたかどうかを確認する

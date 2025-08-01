@@ -29,16 +29,16 @@ def check_midi_devices_on_startup(config_path: str) -> bool:
         midi_config = config_manager.get_midi_config()
         port_name = midi_config.get("port_name", "default")
 
-        logger.log_info(f"設定されたMIDIポート: {port_name}")
+        logger.log_info(f"Configured MIDI port: {port_name}")
 
         # 利用可能なデバイスを確認
         available_ports = device_manager.get_available_input_ports()
 
         if not available_ports:
-            logger.log_error("利用可能なMIDIデバイスが見つかりません")
+            logger.log_error("No available MIDI devices found")
             return False
 
-        logger.log_info(f"利用可能なMIDIポート: {available_ports}")
+        logger.log_info(f"Available MIDI ports: {available_ports}")
 
         # 設定されたポートが利用可能かチェック
         if port_name == "default":
@@ -46,20 +46,20 @@ def check_midi_devices_on_startup(config_path: str) -> bool:
                 # defaultの場合は最初のポートを自動選択
                 selected_port = available_ports[0]
                 config_manager.update_config("midi", "port_name", selected_port)
-                logger.log_info(f"デフォルトポートを自動選択しました: {selected_port}")
+                logger.log_info(f"Default port auto-selected: {selected_port}")
                 return True
         elif port_name not in available_ports:
             # 設定されたポートが見つからない場合は自動的に最初のポートを選択
             if available_ports:
                 selected_port = available_ports[0]
                 config_manager.update_config("midi", "port_name", selected_port)
-                logger.log_info(f"利用可能なポートを自動選択しました: {selected_port}")
+                logger.log_info(f"Available port auto-selected: {selected_port}")
                 return True
 
         return True
 
     except Exception as e:
-        logger.log_error(f"起動時デバイスチェックエラー: {e}")
+        logger.log_error(f"Startup device check error: {e}")
         return False
 
 
@@ -67,11 +67,11 @@ def main():
     """メインアプリケーション"""
     parser = argparse.ArgumentParser(description="MIDI Recording System")
     parser.add_argument(
-        "--config", default="config/config.yaml", help="設定ファイルパス"
+        "--config", default="config/config.yaml", help="Configuration file path"
     )
-    parser.add_argument("--debug", action="store_true", help="デバッグモード")
+    parser.add_argument("--debug", action="store_true", help="Debug mode")
     parser.add_argument(
-        "--skip-device-check", action="store_true", help="デバイスチェックをスキップ"
+        "--skip-device-check", action="store_true", help="Skip device check"
     )
 
     args = parser.parse_args()
@@ -79,22 +79,22 @@ def main():
     try:
         # ログ設定
         logger = Logger()
-        logger.log_info("MIDI Recording System を起動しました")
+        logger.log_info("MIDI Recording System started")
 
         # 設定ファイルの確認
         config_path = Path(args.config)
         if not config_path.exists():
-            logger.log_info(f"設定ファイルが見つかりません: {config_path}")
-            logger.log_info("デフォルト設定ファイルを作成します")
+            logger.log_info(f"Configuration file not found: {config_path}")
+            logger.log_info("Creating default configuration file")
 
         # 起動時にMIDIデバイスをチェック
         if not args.skip_device_check:
-            logger.log_info("起動時デバイスチェックを開始します")
+            logger.log_info("Starting startup device check")
             if not check_midi_devices_on_startup(str(config_path)):
-                logger.log_error("デバイスチェックに失敗しました")
-                print("デバイスチェックに失敗しました。アプリケーションを終了します。")
+                logger.log_error("Device check failed")
+                print("Device check failed. Exiting application.")
                 sys.exit(1)
-            logger.log_info("デバイスチェックが完了しました")
+            logger.log_info("Device check completed")
 
         # GUIアプリケーションを起動
         gui = MIDIGUI(str(config_path))
@@ -105,7 +105,7 @@ def main():
         ft.app(target=gui.main)
 
     except Exception as e:
-        print(f"アプリケーション起動エラー: {e}")
+        print(f"Application startup error: {e}")
         sys.exit(1)
 
 
