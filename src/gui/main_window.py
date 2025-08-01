@@ -59,14 +59,14 @@ class MIDIGUI:
         page.on_window_event = self.handle_window_event
 
         # ステータス表示
-        self.status_text = ft.Text("待機中", size=16, weight=ft.FontWeight.BOLD)
+        self.status_text = ft.Text("Waiting", size=16, weight=ft.FontWeight.BOLD)
 
         # メッセージ数表示
-        self.message_count_text = ft.Text("メッセージ数: 0", size=14)
+        self.message_count_text = ft.Text("Messages: 0", size=14)
 
         # ポート情報表示
         port_name = self.midi_config.get("port_name", "default")
-        self.port_info_text = ft.Text(f"ポート: {port_name}", size=12)
+        self.port_info_text = ft.Text(f"Port: {port_name}", size=12)
 
         # デバイス選択UI（初期状態では非表示）
         self.device_list_column = ft.Column(
@@ -78,14 +78,14 @@ class MIDIGUI:
         self.device_selection_container = ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("MIDIデバイスを選択", size=16, weight=ft.FontWeight.BOLD),
-                    ft.Text("利用可能なMIDIデバイスから選択してください:", size=14),
+                    ft.Text("Select MIDI Device", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text("Please select from available MIDI devices:", size=14),
                     ft.Divider(),
                     self.device_list_column,  # デバイスリスト用
                     ft.Row(
                         [
                             ft.ElevatedButton(
-                                "キャンセル", on_click=self.hide_device_selection
+                                "Cancel", on_click=self.hide_device_selection
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.CENTER,
@@ -101,7 +101,7 @@ class MIDIGUI:
 
         # デバイス選択ボタン
         self.select_device_button = ft.ElevatedButton(
-            "デバイス選択",
+            "Select Device",
             on_click=self.show_device_selection_dialog,
             style=ft.ButtonStyle(
                 color=ft.Colors.WHITE,
@@ -113,12 +113,12 @@ class MIDIGUI:
         output_dir = self.config_manager.get_output_directory()
         manual_save_dir = self.config_manager.get_manual_save_directory()
         self.output_info_text = ft.Text(
-            f"出力: {output_dir} / 手動保存: {manual_save_dir}", size=12
+            f"Output: {output_dir} / Manual Save: {manual_save_dir}", size=12
         )
 
         # ボタン
         self.start_button = ft.ElevatedButton(
-            "録音開始",
+            "Start Recording",
             on_click=self.start_recording,
             style=ft.ButtonStyle(
                 color=ft.Colors.WHITE,
@@ -127,7 +127,7 @@ class MIDIGUI:
         )
 
         self.stop_button = ft.ElevatedButton(
-            "録音停止",
+            "Stop Recording",
             on_click=self.stop_recording,
             style=ft.ButtonStyle(
                 color=ft.Colors.WHITE,
@@ -137,7 +137,7 @@ class MIDIGUI:
         )
 
         self.save_button = ft.ElevatedButton(
-            "手動保存",
+            "Manual Save",
             on_click=self.manual_save,
             style=ft.ButtonStyle(
                 color=ft.Colors.WHITE,
@@ -157,7 +157,7 @@ class MIDIGUI:
         self.log_area = ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("ログ", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text("Log", size=16, weight=ft.FontWeight.BOLD),
                     self.log_list_view,
                 ]
             ),
@@ -242,10 +242,10 @@ class MIDIGUI:
 
                     # GUIが利用可能な場合はログメッセージを表示
                     if self.page and self.log_list_view:
-                        self.log_message(f"終了時保存: {filepath}")
+                        self.log_message(f"Ending save: {filepath}")
 
                     self.logger.log_info(
-                        f"アプリケーション終了時にMIDIデータを保存しました: {filepath}"
+                        f"MIDI data saved at application exit: {filepath}"
                     )
 
                 # 監視を停止
@@ -253,7 +253,7 @@ class MIDIGUI:
                 self.monitor = None
 
         except Exception as e:
-            error_msg = f"終了時保存エラー: {e}"
+            error_msg = f"Ending save error: {e}"
 
             # GUIが利用可能な場合はログメッセージを表示
             if self.page and self.log_list_view:
@@ -289,18 +289,18 @@ class MIDIGUI:
             self.monitor.start_monitoring()
 
             # UIを更新
-            self.status_text.value = "録音中"
+            self.status_text.value = "Recording"
             self.status_text.color = ft.Colors.GREEN
             self.start_button.disabled = True
             self.stop_button.disabled = False
             self.save_button.disabled = False
 
             self.page.update()
-            self.log_message("録音を開始しました")
+            self.log_message("Recording started")
 
         except Exception as e:
-            self.log_message(f"録音開始エラー: {e}")
-            self.logger.log_error(f"録音開始エラー: {e}")
+            self.log_message(f"Recording start error: {e}")
+            self.logger.log_error(f"Recording start error: {e}")
 
     def stop_recording(self, _):
         """録音を停止する"""
@@ -309,25 +309,25 @@ class MIDIGUI:
                 # 残りのバッファを保存
                 if self.monitor.has_buffered_events():
                     filepath = self.monitor.save_current_buffer()
-                    self.log_message(f"最終保存: {filepath}")
+                    self.log_message(f"Final save: {filepath}")
 
                 # 監視を停止
                 self.monitor.stop_monitoring()
                 self.monitor = None
 
             # UIを更新
-            self.status_text.value = "停止中"
+            self.status_text.value = "Stopping"
             self.status_text.color = ft.Colors.RED
             self.start_button.disabled = False
             self.stop_button.disabled = True
             self.save_button.disabled = True
 
             self.page.update()
-            self.log_message("録音を停止しました")
+            self.log_message("Recording stopped")
 
         except Exception as e:
-            self.log_message(f"録音停止エラー: {e}")
-            self.logger.log_error(f"録音停止エラー: {e}")
+            self.log_message(f"Recording stop error: {e}")
+            self.logger.log_error(f"Recording stop error: {e}")
 
     def manual_save(self, _):
         """手動保存を実行する"""
@@ -335,15 +335,15 @@ class MIDIGUI:
             if self.monitor:
                 filepath = self.monitor.manual_save()
                 if filepath:
-                    self.log_message(f"手動保存完了: {filepath}")
+                    self.log_message(f"Manual save completed: {filepath}")
                 else:
-                    self.log_message("手動保存: 保存するファイルがありません")
+                    self.log_message("Manual save: No file to save")
             else:
-                self.log_message("保存するデータがありません")
+                self.log_message("No data to save")
 
         except Exception as e:
-            self.log_message(f"手動保存エラー: {e}")
-            self.logger.log_error(f"手動保存エラー: {e}")
+            self.log_message(f"Manual save error: {e}")
+            self.logger.log_error(f"Manual save error: {e}")
 
     def start_monitoring_thread(self):
         """監視スレッドを開始する"""
@@ -361,8 +361,8 @@ class MIDIGUI:
                     time.sleep(0.1)  # 100ms間隔でチェック
 
                 except Exception as e:
-                    self.log_message(f"監視エラー: {e}")
-                    self.logger.log_error(f"監視エラー: {e}")
+                    self.log_message(f"Monitoring error: {e}")
+                    self.logger.log_error(f"Monitoring error: {e}")
 
         # バックグラウンドスレッドを開始
         thread = threading.Thread(target=monitoring_loop, daemon=True)
@@ -377,13 +377,13 @@ class MIDIGUI:
             if self.monitor:
                 # メッセージ数を更新
                 message_count = self.monitor.get_message_count()
-                self.message_count_text.value = f"メッセージ数: {message_count}"
+                self.message_count_text.value = f"Messages: {message_count}"
 
                 # ページを更新
                 self.page.update()
 
         except Exception as e:
-            self.log_message(f"UI更新エラー: {e}")
+            self.log_message(f"UI update error: {e}")
 
     def log_message(self, message: str):
         """ログメッセージを表示する"""
@@ -408,24 +408,24 @@ class MIDIGUI:
 
         except Exception as e:
             # GUIが利用できない場合はログファイルのみに記録
-            self.logger.log_error(f"ログメッセージ表示エラー: {e}")
+            self.logger.log_error(f"Log message display error: {e}")
             self.logger.log_info(message)
 
     def show_device_selection_dialog(self, _):
         """デバイス選択ダイアログを表示する"""
         try:
             # デバッグログを追加
-            self.log_message("デバイス選択ボタンがクリックされました")
-            self.logger.log_info("デバイス選択ボタンがクリックされました")
+            self.log_message("Device selection button clicked")
+            self.logger.log_info("Device selection button clicked")
 
             available_ports = self.device_manager.get_available_input_ports()
             current_port = self.midi_config.get("port_name", "default")
 
-            self.log_message(f"利用可能なポート: {available_ports}")
-            self.log_message(f"現在のポート: {current_port}")
+            self.log_message(f"Available ports: {available_ports}")
+            self.log_message(f"Current port: {current_port}")
 
             if not available_ports:
-                self.log_message("利用可能なMIDIデバイスが見つかりません")
+                self.log_message("No available MIDI devices found")
                 return
 
             # デバイス選択UIを表示
@@ -438,7 +438,7 @@ class MIDIGUI:
             for i, port in enumerate(available_ports):
                 # 現在選択されているポートかどうかを判定
                 is_current = port == current_port
-                status_text = "現在選択中" if is_current else "利用可能"
+                status_text = "Currently Selected" if is_current else "Available"
                 status_color = ft.Colors.GREEN if is_current else ft.Colors.GREY
 
                 # ラムダ関数の問題を修正
@@ -460,7 +460,7 @@ class MIDIGUI:
                             ),
                         ),
                         subtitle=ft.Text(
-                            f"MIDI入力ポート {i+1} - {status_text}", color=status_color
+                            f"MIDI Input Port {i+1} - {status_text}", color=status_color
                         ),
                         on_click=create_click_handler(port),
                         selected=is_current,
@@ -468,20 +468,18 @@ class MIDIGUI:
                 )
 
             self.page.update()
-            self.log_message("デバイス選択UIを表示しました")
+            self.log_message("Device selection UI displayed")
+            self.log_message(f"Added {len(available_ports)} devices to device list")
             self.log_message(
-                f"デバイスリストに {len(available_ports)} 個のデバイスを追加しました"
-            )
-            self.log_message(
-                f"デバイスリストのコントロール数: {len(self.device_list_column.controls)}"
+                f"Device list control count: {len(self.device_list_column.controls)}"
             )
 
         except Exception as e:
-            self.log_message(f"デバイス選択エラー: {e}")
-            self.logger.log_error(f"デバイス選択エラー: {e}")
+            self.log_message(f"Device selection error: {e}")
+            self.logger.log_error(f"Device selection error: {e}")
             import traceback
 
-            self.log_message(f"エラー詳細: {traceback.format_exc()}")
+            self.log_message(f"Error details: {traceback.format_exc()}")
 
     def select_device(self, port_name: str):
         """デバイスを選択する"""
@@ -493,33 +491,29 @@ class MIDIGUI:
             self.midi_config = self.config_manager.get_midi_config()
 
             # UIを更新
-            self.port_info_text.value = f"ポート: {port_name}"
+            self.port_info_text.value = f"Port: {port_name}"
             self.page.update()
 
             # デバイス選択UIを非表示にする
             self.hide_device_selection(None)
 
             # ログメッセージを表示
-            self.log_message(f"デバイスを選択しました: {port_name}")
-            self.logger.log_info(f"デバイスを選択しました: {port_name}")
+            self.log_message(f"Device selected: {port_name}")
+            self.logger.log_info(f"Device selected: {port_name}")
 
             # デバイス接続テスト
             if self.device_manager.test_port_connection(port_name):
-                self.log_message(f"デバイス '{port_name}' の接続テストが成功しました")
-                self.logger.log_info(
-                    f"デバイス '{port_name}' の接続テストが成功しました"
-                )
+                self.log_message(f"Device '{port_name}' connection test successful")
+                self.logger.log_info(f"Device '{port_name}' connection test successful")
             else:
                 self.log_message(
-                    f"警告: デバイス '{port_name}' の接続テストに失敗しました"
+                    f"Warning: Device '{port_name}' connection test failed"
                 )
-                self.logger.log_info(
-                    f"デバイス '{port_name}' の接続テストに失敗しました"
-                )
+                self.logger.log_info(f"Device '{port_name}' connection test failed")
 
         except Exception as e:
-            self.log_message(f"デバイス選択エラー: {e}")
-            self.logger.log_error(f"デバイス選択エラー: {e}")
+            self.log_message(f"Device selection error: {e}")
+            self.logger.log_error(f"Device selection error: {e}")
 
     def hide_device_selection(self, _):
         """デバイス選択UIを非表示にする"""
@@ -527,10 +521,10 @@ class MIDIGUI:
             if self.device_selection_container.visible:
                 self.device_selection_container.visible = False
                 self.page.update()
-                self.log_message("デバイス選択UIを非表示にしました")
+                self.log_message("Device selection UI hidden")
         except Exception as e:
-            self.log_message(f"デバイス選択UI非表示エラー: {e}")
-            self.logger.log_error(f"デバイス選択UI非表示エラー: {e}")
+            self.log_message(f"Device selection UI hide error: {e}")
+            self.logger.log_error(f"Device selection UI hide error: {e}")
 
     def check_and_select_device(self) -> bool:
         """デバイスの可用性をチェックし、必要に応じて選択を促す"""
@@ -541,7 +535,7 @@ class MIDIGUI:
                 available_ports = self.device_manager.get_available_input_ports()
 
                 if not available_ports:
-                    self.log_message("利用可能なMIDIデバイスが見つかりません")
+                    self.log_message("No available MIDI devices found")
                     return False
 
                 # 最初の利用可能なポートを自動選択
@@ -551,23 +545,23 @@ class MIDIGUI:
                         "midi", "port_name", selected_port
                     )
                     self.midi_config = self.config_manager.get_midi_config()
-                    self.port_info_text.value = f"ポート: {selected_port}"
+                    self.port_info_text.value = f"Port: {selected_port}"
                     self.page.update()
-                    self.log_message(f"デバイスを自動選択しました: {selected_port}")
+                    self.log_message(f"Device auto-selected: {selected_port}")
                     return True
                 else:
                     # 複数のデバイスがある場合は選択を促す
-                    self.log_message(f"設定されたポート '{port_name}' が見つかりません")
+                    self.log_message(f"Configured port '{port_name}' not found")
                     self.log_message(
-                        "デバイス選択ボタンから利用可能なデバイスを選択してください"
+                        "Please select an available device from the device selection button"
                     )
                     return False
 
             return True
 
         except Exception as e:
-            self.log_message(f"デバイスチェックエラー: {e}")
-            self.logger.log_error(f"デバイスチェックエラー: {e}")
+            self.log_message(f"Device check error: {e}")
+            self.logger.log_error(f"Device check error: {e}")
             return False
 
     def check_device_on_startup(self):
@@ -576,11 +570,11 @@ class MIDIGUI:
             port_name = self.midi_config.get("port_name", "default")
             if not self.device_manager.is_port_available(port_name):
                 self.log_message(
-                    f"設定されたポート '{port_name}' が見つかりません。デバイスを選択してください。"
+                    f"Configured port '{port_name}' not found. Please select a device."
                 )
                 self.show_device_selection_dialog(None)
             else:
-                self.log_message(f"設定されたポート '{port_name}' が見つかりました。")
+                self.log_message(f"Configured port '{port_name}' found.")
         except Exception as e:
-            self.log_message(f"起動時デバイスチェックエラー: {e}")
-            self.logger.log_error(f"起動時デバイスチェックエラー: {e}")
+            self.log_message(f"Startup device check error: {e}")
+            self.logger.log_error(f"Startup device check error: {e}")
