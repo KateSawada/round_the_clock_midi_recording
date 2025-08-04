@@ -42,6 +42,7 @@ class MIDIMonitor:
         self.logger = Logger()
 
         self.is_monitoring = False
+        self._device_disconnected = False  # デバイス切断フラグ
 
     def start_monitoring(self, interactive_selection: bool = True) -> None:
         """監視を開始する
@@ -60,6 +61,7 @@ class MIDIMonitor:
             self.timer.start_timer(self._auto_save_callback)
 
             self.is_monitoring = True
+            self._device_disconnected = False
             self.logger.log_recording_started()
 
         except Exception as e:
@@ -75,7 +77,44 @@ class MIDIMonitor:
         self.receiver.stop_recording()
 
         self.is_monitoring = False
+        self._device_disconnected = False
         self.logger.log_recording_stopped()
+
+    def _handle_device_disconnection(self) -> bool:
+        """デバイス切断を処理する
+
+        Returns:
+            再接続に成功した場合はTrue
+        """
+        if self._device_disconnected:
+            return False
+
+        self._device_disconnected = True
+        self.logger.log_error("MIDI device disconnected")
+
+        if self.gui_callback:
+            self.gui_callback("MIDI device disconnected. Attempting to reconnect...")
+
+        # 現在のバッファを保存
+        if self.receiver.has_messages():
+            try:
+                self.save_current_buffer(is_manual_save=False)
+                self.logger.log_info("Saved buffer before device disconnection")
+            except Exception as e:
+                self.logger.log_error(f"Failed to save buffer: {e}")
+
+        # デバイスの再接続を試行
+        if self.receiver._handle_device_disconnection():
+            self._device_disconnected = False
+            self.logger.log_info("Device reconnected successfully")
+            if self.gui_callback:
+                self.gui_callback("Device reconnected successfully")
+            return True
+        else:
+            self.logger.log_error("Device reconnection failed")
+            if self.gui_callback:
+                self.gui_callback("Device reconnection failed")
+            return False
 
     def save_current_buffer(self, is_manual_save: bool = False) -> Optional[str]:
         """現在のバッファを保存する
@@ -203,6 +242,16 @@ class MIDIMonitor:
             return
 
         try:
+            # デバイス切断状態をチェック
+            if self._device_disconnected:
+                if not self._handle_device_disconnection():
+                    # 再接続に失敗した場合は監視を停止
+                    self.logger.log_error(
+                        "Device reconnection failed, stopping monitoring"
+                    )
+                    self.stop_monitoring()
+                    return
+
             # MIDIメッセージを受信
             self.receiver.receive_messages()
 
@@ -282,6 +331,7 @@ class MIDIMonitor:
             "port_name": self.port_name,
             "output_directory": self.output_directory,
             "manual_save_directory": self.manual_save_directory,
+            "device_disconnected": self._device_disconnected,
         }
 
     def get_message_count(self) -> int:

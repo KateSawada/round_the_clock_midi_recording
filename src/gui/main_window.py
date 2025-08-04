@@ -355,6 +355,15 @@ class MIDIGUI:
                         # MIDIイベントを処理
                         self.monitor.process_midi_events()
 
+                        # デバイス切断状態をチェック
+                        status = self.monitor.get_status()
+                        if status.get("device_disconnected", False):
+                            self.log_message(
+                                "Device disconnected, attempting reconnection..."
+                            )
+                            # デバイス選択UIを表示
+                            self.show_device_selection_dialog(None)
+
                         # UIを更新
                         self.update_ui()
 

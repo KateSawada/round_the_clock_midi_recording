@@ -430,6 +430,7 @@ class DeviceManager:
 - **DiskSpaceError**: ディスク容量不足
 - **MemoryError**: メモリ不足
 - **ConnectionError**: MIDI接続エラー
+- **DeviceDisconnectionError**: MIDIデバイス切断エラー
 
 ### 6.2 エラー処理方針
 ```python
@@ -437,6 +438,9 @@ def handle_midi_error(error):
     if isinstance(error, DeviceNotFoundError):
         log_error("MIDI device not found, waiting for reconnection")
         wait_for_reconnection()
+    elif isinstance(error, DeviceDisconnectionError):
+        log_error("MIDI device disconnected, attempting reconnection")
+        handle_device_disconnection()
     elif isinstance(error, MemoryError):
         log_error("Memory limit reached, forcing file write")
         force_write_and_clear()
@@ -446,6 +450,64 @@ def handle_midi_error(error):
     else:
         log_error(error)
         continue_monitoring()
+```
+
+### 6.3 デバイス再接続機能
+```python
+class DeviceReconnectionManager:
+    def __init__(self):
+        self.max_reconnection_attempts = 3
+        self.reconnection_timeout = 30.0
+        self.check_interval = 1.0
+    
+    def wait_for_reconnection(self, port_name: str) -> bool:
+        """デバイスの再接続を待機する"""
+        start_time = time.time()
+        while time.time() - start_time < self.reconnection_timeout:
+            if self.is_port_available(port_name):
+                return True
+            time.sleep(self.check_interval)
+        return False
+    
+    def find_alternative_port(self, original_port: str) -> Optional[str]:
+        """代替ポートを探す"""
+        available_ports = self.get_available_ports()
+        if not available_ports:
+            return None
+        
+        # 同じ名前のポートを優先
+        for port in available_ports:
+            if port == original_port:
+                return port
+        
+        # 代替ポートを返す
+        return available_ports[0] if available_ports else None
+```
+
+### 6.4 プラットフォーム固有の処理
+```python
+def setup_platform_backend():
+    """プラットフォームに応じたMIDIバックエンドを設定"""
+    system = platform.system()
+    
+    if system == "Darwin":  # macOS
+        import rtmidi
+        if hasattr(rtmidi, "API_MACOSX_CORE"):
+            rtmidi.MidiIn(rtmidi.API_MACOSX_CORE)
+        mido.set_backend("mido.backends.rtmidi")
+    
+    elif system == "Linux":  # Linux (Raspberry Pi含む)
+        try:
+            mido.set_backend("mido.backends.alsa")
+        except Exception:
+            try:
+                mido.set_backend("mido.backends.portmidi")
+            except Exception:
+                pass
+    
+    else:  # Windowsその他
+        # デフォルトバックエンドを使用
+        pass
 ```
 
 ## 7. 性能要件
