@@ -5,6 +5,7 @@ import time
 from typing import List, Optional
 
 import mido
+import pyudev
 
 from ..utils.exceptions import MIDIError
 from .device_manager import MIDIDeviceManager
@@ -32,6 +33,14 @@ class MIDIReceiver:
         self._previous_message_count = 0  # 前回のメッセージ数を記録
         self.device_manager = MIDIDeviceManager()
 
+        # 再接続のための監視
+        self.context = pyudev.Context()
+        self.monitor = pyudev.Monitor.from_netlink(self.context)
+        self.monitor.filter_by('sound')  # サウンドデバイスに限定
+
+        self.observer = pyudev.MonitorObserver(self.monitor, callback=self._device_event_callback)
+        self.observer.start()
+
         # macOSではrtmidiバックエンドの設定を調整
         if platform.system() == "Darwin":
             try:
@@ -46,6 +55,13 @@ class MIDIReceiver:
             except Exception:
                 # バックエンド設定に失敗した場合はデフォルトを使用
                 pass
+
+    def _device_event_callback(self, action):
+        if "midi" in action.sys_name and action.action == "add":
+            print(f"{action.device_node} added")
+            time.sleep(1)  # 接続が確率するのを待つ
+            self._port = mido.open_input(self.port_name)
+
 
     def start_recording(self, interactive_selection: bool = True) -> None:
         """MIDI受信を開始する
