@@ -5,8 +5,8 @@ logging:
   file: ./logs/midi_recorder.log
   level: INFO
 midi:
-  port_name: "AvantGrand"
-  timeout_seconds: 300
+  port_name: Roland Digital Piano:Roland Digital Piano MIDI 1 24:0
+  timeout_seconds: 5
 output:
   directory: ./recordings
   manual_save_directory: ./manual_saves
