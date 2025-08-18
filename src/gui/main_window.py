@@ -358,8 +358,6 @@ class MIDIGUI:
                         # UIを更新
                         self.update_ui()
 
-                    time.sleep(0.1)  # 100ms間隔でチェック
-
                 except Exception as e:
                     self.log_message(f"Monitoring error: {e}")
                     self.logger.log_error(f"Monitoring error: {e}")
