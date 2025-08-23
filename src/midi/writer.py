@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from collections import defaultdict
 from datetime import datetime
 from typing import List, Optional
 
@@ -26,12 +27,38 @@ class MIDIFileWriter:
         self.manual_save_directory = manual_save_directory or output_directory
         self._ensure_directory_exists()
 
+        self.is_note_pressed_by_note_number = defaultdict(bool)
+
     def _ensure_directory_exists(self) -> None:
         """出力ディレクトリが存在することを確認する"""
         if not os.path.exists(self.output_directory):
             os.makedirs(self.output_directory)
         if not os.path.exists(self.manual_save_directory):
             os.makedirs(self.manual_save_directory)
+
+    def _process_message_on_cable_matter(self, message: mido.Message) -> mido.Message:
+        """Cable MattersのMIDIケーブルのバグ対策
+
+        Args:
+            message (mido.Message): 処理するMIDIメッセージ
+
+        Returns:
+            mido.Message: 処理後のMIDIメッセージ
+        """
+        # Cable MattersのMIDIケーブルには、同時にnote_offがnote_onとして送信されるバグがある
+        # このバグを回避するため、note_offが送信された場合はnote_onとして扱う
+        if self.is_note_pressed_by_note_number[message.note]:
+            message = mido.Message(
+                type="note_on",
+                note=message.note,
+                velocity=0,
+                time=message.time,
+            )
+            self.is_note_pressed_by_note_number[message.note] = False
+        else:
+            if message.type == "note_on":
+                self.is_note_pressed_by_note_number[message.note] = True
+        return message
 
     def write_messages(
         self,
@@ -80,7 +107,7 @@ class MIDIFileWriter:
             for message in normalized_messages:
                 # メッセージタイプがMetaMessageでない場合のみ追加
                 if not hasattr(message, "type") or message.type != "set_tempo":
-                    track.append(message)
+                    track.append(self._process_message_on_cable_matter(message))
 
             # ファイルに書き込み
             midi_file.save(filepath)
