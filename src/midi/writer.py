@@ -47,17 +47,18 @@ class MIDIFileWriter:
         """
         # Cable MattersのMIDIケーブルには、同時にnote_offがnote_onとして送信されるバグがある
         # このバグを回避するため、note_offが送信された場合はnote_onとして扱う
-        if self.is_note_pressed_by_note_number[message.note]:
-            message = mido.Message(
-                type="note_on",
-                note=message.note,
-                velocity=0,
-                time=message.time,
-            )
-            self.is_note_pressed_by_note_number[message.note] = False
-        else:
-            if message.type == "note_on":
-                self.is_note_pressed_by_note_number[message.note] = True
+        if not message.is_meta and message.type in ["note_on", "note_off"]:
+            if self.is_note_pressed_by_note_number[message.note]:
+                message = mido.messages.messages.Message(
+                    type="note_on",
+                    note=message.note,
+                    velocity=0,
+                    time=message.time,
+                )
+                self.is_note_pressed_by_note_number[message.note] = False
+            else:
+                if message.type == "note_on":
+                    self.is_note_pressed_by_note_number[message.note] = True
         return message
 
     def write_messages(
